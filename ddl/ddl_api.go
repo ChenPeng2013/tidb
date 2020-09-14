@@ -584,6 +584,7 @@ func columnDefToCol(ctx sessionctx.Context, offset int, colDef *ast.ColumnDef, o
 		}
 	}
 
+<<<<<<< HEAD
 	setTimestampDefaultValue(col, hasDefaultValue, setOnUpdateNow)
 
 	// Set `NoDefaultValueFlag` if this field doesn't have a default value and
@@ -602,6 +603,9 @@ func columnDefToCol(ctx sessionctx.Context, offset int, colDef *ast.ColumnDef, o
 		col.Flag &= ^mysql.BinaryFlag
 		col.Flag |= mysql.ZerofillFlag
 	}
+=======
+	processDefaultValue(col, hasDefaultValue, setOnUpdateNow)
+>>>>>>> 473bbb3... ddl: correct default year value (#19793)
 
 	// If you specify ZEROFILL for a numeric column, MySQL automatically adds the UNSIGNED attribute to the column.
 	// See https://dev.mysql.com/doc/refman/5.7/en/numeric-type-overview.html for more details.
@@ -793,6 +797,28 @@ func removeOnUpdateNowFlag(c *table.Column) {
 	// OnUpdateNowFlag should be removed.
 	if mysql.HasTimestampFlag(c.Flag) {
 		c.Flag &= ^mysql.OnUpdateNowFlag
+	}
+}
+
+func processDefaultValue(c *table.Column, hasDefaultValue bool, setOnUpdateNow bool) {
+	setTimestampDefaultValue(c, hasDefaultValue, setOnUpdateNow)
+
+	setYearDefaultValue(c, hasDefaultValue)
+
+	// Set `NoDefaultValueFlag` if this field doesn't have a default value and
+	// it is `not null` and not an `AUTO_INCREMENT` field or `TIMESTAMP` field.
+	setNoDefaultValueFlag(c, hasDefaultValue)
+}
+
+func setYearDefaultValue(c *table.Column, hasDefaultValue bool) {
+	if hasDefaultValue {
+		return
+	}
+
+	if c.Tp == mysql.TypeYear && mysql.HasNotNullFlag(c.Flag) {
+		if err := c.SetDefaultValue("0000"); err != nil {
+			logutil.BgLogger().Error("set default value failed", zap.Error(err))
+		}
 	}
 }
 
@@ -2886,11 +2912,7 @@ func processColumnOptions(ctx sessionctx.Context, col *table.Column, options []*
 		}
 	}
 
-	setTimestampDefaultValue(col, hasDefaultValue, setOnUpdateNow)
-
-	// Set `NoDefaultValueFlag` if this field doesn't have a default value and
-	// it is `not null` and not an `AUTO_INCREMENT` field or `TIMESTAMP` field.
-	setNoDefaultValueFlag(col, hasDefaultValue)
+	processDefaultValue(col, hasDefaultValue, setOnUpdateNow)
 
 	if col.Tp == mysql.TypeBit {
 		col.Flag |= mysql.UnsignedFlag
