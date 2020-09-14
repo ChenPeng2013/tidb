@@ -34,8 +34,14 @@ jobs:
           echo "${{ github.event }}"
           mkdir -p tools/bin
           curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./tools/bin v1.21.0
+          ls tools/bin
           export GOPATH=${GITHUB_WORKSPACE}/go
           export PATH=$PATH:$GOPATH/bin
-          make check
-          make test_part_1
+          if [[ "${{ github.base_ref }}" == "master" ]]; then
+            make check
+            make test_part_1
+            ./tools/check/check_parser_replace.sh
+          else
+            make dev
+          fi
         working-directory: ${{ github.workspace }}/go/src/github.com/${{ github.repository }}
